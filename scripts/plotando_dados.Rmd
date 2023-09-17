@@ -20,14 +20,14 @@ library(patchwork) # permite combinar gráficos do pacote ggplot2 em uma mesma f
 
 ## População brasileira por sexo
 
-Vamos trabalhar com um conjunto de dados referente à quantidade de habitantes da população brasileira segundo sexo e grupo de idade em uma série histórica de 2012 a 2019. Esse conjunto foi  baixado através do pacote `basedosdados`.  Foram feitas algumas modificações no conjunto (observe o _script_ tidyingdata_1.R) para ter os dados no formato *tidy*. Então vamos carregar os dados:
+Vamos trabalhar com uma série histórica de 2012 a 2019 referente à quantidade de habitantes da população brasileira segundo sexo e grupo de idade. Esse conjunto de dados foi  baixado através do pacote [`basedosdados`](https://basedosdados.org/dataset/9fa532fb-5681-4903-b99d-01dc45fd527a?table=9e4ab8f4-3ad4-47fb-9919-5658d2e09c4f).  Foram feitas algumas modificações no conjunto (observe o _script_ tidyingdata_1.R) para ter os dados no formato *tidy*. Então vamos carregar os dados:
 
 ```{r, message=FALSE}
 dt <- readr::read_csv('dados/populacao_brasil_pnadc_tidy.csv')
 glimpse(dt)
 ```
 
-Os gráficos **p1_a** e **p1_b** irão mostrar o número de habitantes por sexo em cada ano, já que usaremos `facet_wrap()` para dividir os dados em subgráficos. Antes disso, precisamos obter o total de habitantes de cada sexo para cada ano, já que nossos dados estão divididos em grupos de idade. Isso requer que façamos a soma do número de habitantes, agrupando por sexo e ano. Trata-se de uma operação de sumarização de dados que pode ser feita usando `summarise()` e o parâmetro `.by`. No entanto, nossos dados tem redundância em alguns grupos de idade, ou seja, alguns níveis englobam habitantes por idade de outros níveis, causando interseção entre os níveis. Portanto, devemos filtrar alguns grupos de idade específicos para obter uma sumarização coerente (faremos isso com a função `filter()`).
+Os gráficos **p1_a** e **p1_b** irão mostrar o número de habitantes por sexo em cada ano, divididos em subgráficos, já que usaremos `facet_wrap()`. Antes disso, precisamos obter o total de habitantes por sexo para cada ano, uma vez que o número de habitantes (coluna **populacao**) também considera grupos de idade. Isso requer que façamos a soma do número de habitantes, agrupando por sexo e ano. Trata-se de uma operação de sumarização de dados que pode ser feita usando `summarise()` e o parâmetro `.by`. No entanto, nossos dados tem redundância em alguns grupos de idade, ou seja, alguns níveis englobam habitantes por idade de outros níveis, causando interseção entre os níveis. Portanto, devemos filtrar alguns grupos de idade específicos para obter uma sumarização coerente (faremos isso com a função `filter()`).
 
 ```{r}
 grupos_redundantes <- c('5 a 13 anos', '14 a 17 anos', '60 anos ou mais')
@@ -40,22 +40,22 @@ p1_a <- dt |>
 p1_b <- dt |>
   filter(!(grupo_idade %in% grupos_redundantes)) |>
   summarise(total = sum(populacao), .by = c(sexo, ano)) |>
-  ggplot(aes(x = ano, y = total / 10^6, fill = sexo)) +
+  ggplot(aes(x = ano, y = total * 10^-6, fill = sexo)) +
   geom_col() +
   facet_wrap(~sexo)
 p1_a / p1_b # mostrar os plots p1_a e p1_b
 ```
 
-Perceba que nem todos os anos aparecem no eixo x. Portanto, faremos uma alteração usando a função `scale_x_continuous()` e o parâmetro `breaks` para indicar como _labels_ do eixo x todos os anos da série histórica que serão obtidas com as ocorrências únicas dos anos na coluna **ano** através da função `unique()` do pacote `base`. Também adicionaremos um tema.
+Perceba que nem todos os anos aparecem no eixo x. Portanto, faremos uma alteração usando a função `scale_x_continuous()` e o parâmetro `breaks` para indicar como _labels_ do eixo x todos os anos da série histórica, que serão obtidos como ocorrências únicas da coluna **ano** através da função `unique()` do pacote `base`. Também adicionaremos um tema.
 
-```{r}
+```{r, fig.width=10}
 p1_a + scale_x_continuous(breaks = unique(dt$ano)) + theme_classic()
 ```
 
-Os valores do eixo y estão em notação ciêntifica, o que não é amigável para o gráfico pretendido. Vamos alterar o eixo y para mostrar o número de habitantes em notação numérica, ao invés de ciêntifica, usando `scale_y_continuous()` e `scales::label_comma()`.
+Os valores do eixo y estão em notação ciêntifica, o que não é amigável para o gráfico pretendido. Vamos alterar o eixo y para mostrar o número de habitantes em notação numérica usando `scale_y_continuous()` e `scales::label_comma()`.
 
-```{r}
-p1_a <- p1_a +
+```{r, fig.width=10}
+  p1_a <- p1_a +
   scale_x_continuous(breaks = unique(dt$ano)) +
   scale_y_continuous(labels = label_comma(big.mark = '.', decimal.mark = ',')) +
   theme_classic()
@@ -64,7 +64,7 @@ p1_a
 
 Em **p1_b** também geraremos notação numérica, no entanto, em milhões de habitantes usando  `scale_y_continuous()` e `scales::number_format()`.
 
-```{r}
+```{r, fig.width=10}
 p1_b <- p1_b +
     scale_x_continuous(breaks = unique(dt$ano)) +
     scale_y_continuous(labels = number_format(suffix = "M")) +
@@ -72,23 +72,24 @@ p1_b <- p1_b +
 p1_b
 ```
 
-Agora alteraremos o título do eixo y e excluíremos do eixo x.
+Agora alteraremos o título do eixo y e, excluíremos do eixo x e da legenda.
 
-```{r}
-p1 <- p1_a + ylab("População Brasileira") + theme(axis.title.x = element_blank())
-p1
+```{r, fig.width=10}
+p1_a <- p1_a + ylab("População Brasileira") + theme(legend.title = element_blank(), axis.title.x = element_blank())
+p1_b  <- p1_b + ylab("População Brasileira") + theme(legend.title = element_blank(), axis.title.x = element_blank())
+p1_a / p1_b
 ```
 
-Podemos converter **p1** para um gráfico interativo com `ggplotly()`.
+Podemos converter **p1_a** para um gráfico interativo com `ggplotly()`.
 
-```{r}
-ggplotly(p1)
+```{r, cache=TRUE}
+ggplotly(p1_a)
 ```
 
 
 Vejamos a construção de um gráfico interativo que apresentará a mesma informação. Porém, usaremos somente o `plot_ly()`.
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, cache=TRUE}
 dt |>
   filter(!(grupo_idade %in% grupos_redundantes)) |>
   summarise(total = sum(populacao), .by = c(sexo, ano)) |>
@@ -98,31 +99,29 @@ dt |>
           type = 'bar') |>
   layout(yaxis = list(title = "População Brasileira"),
          xaxis = list(title = ""))
-# group_by(sexo) |>
-# group_map(~ plot_ly(data=., x = ~ano, y = ~total, color = ~sexo, type = "bar"), .keep=TRUE) |>
-# subplot(nrows = 1, shareX = TRUE, shareY=TRUE)
 ```
 
 
 ### Exercício
 
-Gere um gráfico de linhas e pontos com o `ggplot2` para a população brasileira diferenciando pela coluna **sexo** e faça a converção para um gráfico interativo com `ggplotly()`.
+Gere um gráfico de linhas e pontos com o `ggplot2` para a população brasileira diferenciando pela coluna **sexo** e faça a conversão para um gráfico interativo com `ggplotly()`.
 
 
-```{r}
+```{r, cache=TRUE}
 p1 <- dt |>
   filter(!(grupo_idade %in% grupos_redundantes)) |>
   summarise(total = sum(populacao), .by = c(sexo, ano)) |>
   ggplot(aes(x = ano, y = total * 10^-6, color = sexo)) +
   geom_line() + 
   geom_point() +
-  ylab("População Brasileira (milhões)") + theme(axis.title.x = element_blank())
+  ylab("População Brasileira (em milhões)") + theme(axis.title.x = element_blank())
 p1
 ```
 
-```{r}
-ggplotly(p1)
-# ou usando apenas o plotly
+
+```{r, cache=TRUE}
+# ggplotly(p1)
+# Ou usando apenas o plotly
 dt |>
   filter(!(grupo_idade %in% grupos_redundantes)) |>
   summarise(total = sum(populacao), .by = c(sexo, ano)) |>
@@ -138,9 +137,9 @@ dt |>
 
 ## População brasileira por grupo de idade
 
-Vamos produzir um gráfico dos habitantes considerando a coluna **grupo_idade**. Para isso geramos subgráficos usando `facet_wrap()`. Faremos ajustes no texto do eixo x e dos paíneis de cada subgráfico para melhorar a visualização.
+Vamos produzir um gráfico dos habitantes, gerando subgráficos para os grupos de idade (coluna **grupo_idade**) com `facet_wrap()`. Faremos ajustes no texto do eixo x e dos paíneis de cada subgráfico para melhorar a visualização.
 
-```{r, fig.width=15.5}
+```{r, fig.width=15.5, cache=TRUE}
 dt |>
   filter(!(grupo_idade %in% grupos_redundantes)) |>
   #filter(sexo == "Mulheres") |>
@@ -155,12 +154,12 @@ dt |>
 
 Perceba que os grupos de idade não estão dispostos em uma ordenação amigável. Vamos converter a coluna **grupo_idade** de `character` para o tipo `factor`, mas  aplicando uma ordenação manual através de duas alternativas:
 
-- Alternativa 1 - criar um conjunto de _labels_ pré-ordenados - contendo níveis existentes da coluna **grupo_idade** - e indicá-lo como níveis ao converter para variável categórica através do parâmetro **levels** da função `factor()`;
+- Alternativa 1 - criar um conjunto de _labels_ pré-ordenados - contendo níveis existentes da coluna **grupo_idade** - e indicá-lo como níveis na conversão para variável categórica através do parâmetro **levels** da função `factor()`;
 - Alternativa 2 - usar a função `forcats::fct_reorder()` para reordenar os dados baseado nos valores de outra coluna.
 
 Além disso, geraremos os subgráficos usando `face_grid()` que permite um controle sobre à disposição dos _labels_ nos eixos x e y.
 
-```{r, fig.width=15.5}
+```{r, fig.width=15.5, cache=TRUE}
 faixa_etaria_labels = c("0 a 4 anos", "5 a 9 anos", "5 a 13 anos", "10 a 13 anos", "14 a 15 anos",
                         "14 a 17 anos", "16 a 17 anos",    "18 a 19 anos",    "20 a 24 anos",
                         "25 a 29 anos", "30 a 39 anos", "40 a 49 anos", "50 a 59 anos",
@@ -174,6 +173,12 @@ p2 <- dt |>
   facet_grid(sexo ~ grupo_idade) +
   ylab("População Brasileira (milhões de habitantes)") +
   theme_classic()
+p2
+```
+
+Criaremos um tema para aplicar algumas customizações no gráfico.
+
+```{r, fig.width=15.5, fig.height=8, cache=TRUE}
 # Criando um tema com modificações de elementos gráficos
 mytheme <- theme(legend.position = "top", legend.title = element_blank(),
                  legend.text = element_text(size = 15, family = 'arial', color = 'black'),
@@ -183,36 +188,34 @@ mytheme <- theme(legend.position = "top", legend.title = element_blank(),
                  axis.text.x = element_text(size = 15, family = 'arial', angle = 65, vjust = .5),
                  strip.text.y = element_text(size = 13, family = 'arial', color = 'black'),
                  strip.text.x = element_text(size = 9.5, family = 'arial', color = 'black', margin = margin(.1,.4,.1,.4, "cm")))
-p2
-```
-```{r, fig.width=15.5}
 p2 + mytheme
 ```
 
+Também podemos converter para um gráfico interativo. Tanto a função `ggplotly()` quanto `plotly()` permitem alterar o tamanho da figura através dos parâmetros `width` e `height`.
 
-```{r}
-ggplotly(p2 + theme(legend.position = 'none', axis.text.x = element_text(angle = 65, vjust = .5)))
+```{r,  out.width="100%", cache=TRUE}
+ggplotly(p2 + mytheme + theme(legend.position = 'none'), width = 1500, height = 700)
 ```
 
 
-Podemos criar gráficos similares usando `plot_ly()`.
+Podemos criar gráficos alternativos usando `plot_ly()`.
 
-```{r}
+```{r, warning=FALSE, cache=TRUE}
 dt |>
     filter(!(grupo_idade %in% grupos_redundantes)) |>
-    mutate(grupo_idade = factor(grupo_idade, levels = faixa_etaria_labels)) |>          # alternativa 1
-    #mutate(grupo_idade = fct_reorder(factor(grupo_idade), populacao)) |>               # alternativa 2
-    group_by(sexo, grupo_idade) |>
     plot_ly(x = ~ano, 
             y = ~populacao,
             color = ~sexo,
-            split = ~grupo_idade,
-            type = "bar") |>
-    layout(yaxis = list(title = "População Brasileira"),
+            name = ~grupo_idade,
+            text = ~sexo,
+            type = "bar",
+            width = 1500) |>
+    layout(legend = list(orientation = "h", xanchor = "center", x = 0.5), # Podemos  dar orientação horizontal para a  legenda, mante-la na base da figura e centro do eixo x.
+           yaxis = list(title = "População Brasileira"),
            xaxis = list(title = ""))
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, cache=TRUE}
 dt |>
     filter(!(grupo_idade %in% grupos_redundantes)) |>
     #mutate(grupo_idade = factor(grupo_idade, levels = faixa_etaria_labels)) |>        # alternativa 1
@@ -222,27 +225,29 @@ dt |>
                         x = ~ano, 
                         y = ~populacao, 
                         color = ~sexo, 
-                        split = ~sexo, 
-                        name = ~grupo_idade,
-                        type = "bar"), .keep=TRUE) |>
+                        name =  ~grupo_idade,
+                        text = ~sexo,
+                        type = "bar", 
+                        width = 1500), .keep=TRUE) |>
     subplot(nrows = 1, shareX = TRUE, shareY=TRUE, titleX = FALSE) |>
-    layout(yaxis = list(title = "População Brasileira"))
+    layout(showlegend = FALSE, # Esconder legenda
+           yaxis = list(title = "População Brasileira"),
+           xaxis = list(title = ""))
 ```
 
 ### Exercício
 
 Gere um gráfico de linhas e pontos com o `ggplot2` para a população brasileira diferenciando por grupo de idade. O gráfico deve conter sub-divisões dos dados por sexo (subgráficos). Faça a conversão para um gráfico interativo com `ggplotly()`.
 
-```{r}
+```{r, cache=TRUE}
 p2 <- dt |>
   filter(!(grupo_idade %in% grupos_redundantes)) |>
   mutate(grupo_idade = factor(grupo_idade, levels = faixa_etaria_labels)) |>          # alternativa 1
-  #mutate(grupo_idade = fct_reorder(factor(grupo_idade), populacao)) |>               # alternativa 2
   ggplot(aes(x = ano, y = populacao * 10^-6, color = grupo_idade)) +
   geom_line() + geom_point() +
   facet_wrap(~sexo) +
   ylab("População Brasileira (milhões de habitantes)") +
-  theme_classic() 
+  theme_classic() + theme(axis.title.x = element_blank())
 ggplotly(p2)
 ```
 
@@ -251,15 +256,28 @@ ggplotly(p2)
 
 Vamos ler a série histórica da PNAD Contínua referente à taxa de desocupação da população brasileira por grupo de idade entre 2012 e 2023. Esses dados foram baixados diretamente do site do IBGE. Foi feita uma limpeza no conjunto de dados original para obter o formato **tidy** (observe o _script_ tidyingdata_2.R ).
 
-```{r, message=FALSE}
+```{r, message=FALSE, cache=TRUE}
 dt <- readr::read_csv('dados/taxa_desocupacao_idade_2012-2013_tidy.csv')
+glimpse(dt)
 ```
 
-É interessante visualizar a taxa de desocupação por meio de gráfico de linhas para observar a variação a cada trimestre. No entanto, temos apenas a coluna trimestre como variável categórica e ordena-la da forma mais adequada será complicado usando apenas essa coluna. Portando, extraíremos o ano dos valores da coluna trimestre para produzir uma nova coluna que vai permitir a ordenação de forma mais prática.
+É interessante visualizar a taxa de desocupação por meio de um gráfico de linhas para observar a variação ao longo dos trimestres. No entanto, observe:
 
-```{r}
+```{r, fig.width=12}
+dt |>
+  ggplot(aes(x = trimestre, y = taxa_desocupacao, group = faixa_etaria, color = faixa_etaria)) +
+  geom_line() +
+  ylab("Taxa de Desocupação \n População Economicamente Ativa (%)") +
+  scale_color_uchicago() +
+  theme_classic() +
+  theme(legend.title = element_blank(), axis.text.x = element_text(angle = 90), axis.title.x = element_blank())
+```
+
+A coluna **trimestre** é uma variável categórica cuja ordenação considera os caracteres alfanuméricos, assim, as séries temporais não seguem sequências ideais. Ordenar de outra forma será complicado considerando apenas a coluna **trimestre**. Portando, extraíremos a informação referente ao ano dos valores da coluna **trimestre** para produzir uma nova coluna (**ano**) que vai permitir a ordenação de forma mais prática. Para isso, usaremos `stringr::str_sub()` que retorna parte de um texto a partir da indicação das posições inicial e final de caracteres específicos no no vetor do texto. A função `nchar()` do pacote base retorna  o número de caracteres de um texto, que usaremos para referenciar as posições desejadas para fazer a extração. Não obstante, agruparemos os dados de cada linha segundo as faixas etárias com o parâmetro estético **group**, permitindo o início, fim e sequência correta dos dados.
+
+```{r, fig.width=12}
 p3 <- dt |>
-  mutate(ano = as.numeric(str_sub(trimestre, nchar(trimestre) -3, nchar(trimestre)))) |>
+  mutate(ano = as.numeric(str_sub(trimestre, nchar(trimestre) - 3, nchar(trimestre)))) |>
   mutate(trimestre = fct_reorder(factor(trimestre), ano)) |>
   ggplot(aes(x = trimestre, y = taxa_desocupacao, group = faixa_etaria, color = faixa_etaria)) +
   geom_line() +
@@ -270,26 +288,34 @@ p3 <- dt |>
 p3
 ```
 
+
+Podemos produzir gráficos interativos com `ggplotly()` e `plot_ly()`.
+
 ```{r}
-ggplotly(p3)
+ggplotly(p3,  width = 1000, cache=TRUE)
 ```
 
 
-Podemos produzir gráficos similares com `plot_ly()`.
-
-```{r}
+```{r, cache=TRUE}
 dt |>
   mutate(ano = as.numeric(str_sub(trimestre, nchar(trimestre) -3, nchar(trimestre)))) |>
   mutate(trimestre = fct_reorder(factor(trimestre), ano)) |>
-  plot_ly(x = ~trimestre, y = ~taxa_desocupacao, color = ~faixa_etaria, type = "scatter", mode = "lines+markers") |>
+  plot_ly(x = ~trimestre,
+          y = ~taxa_desocupacao,
+          color = ~faixa_etaria, 
+          type = "scatter", 
+          mode = "lines+markers",
+          width = 1000) |>
   layout(
-    yaxis = list(title = 'Taxa de Desocupação \n População Economicamente Ativa (%)"'),
-    xaxis = list(title = '')
-  )
+    legend = list(orientation = "h", yanchor = "center", y = 1.1),
+    yaxis = list(title = "Taxa de Desocupação \n População Economicamente Ativa (%)"),
+    xaxis = list(title = ""))
 ```
 
+Podemos sumarizar os dados para obter a taxa de desocupação média por ano, agrupando por ano e faixa_etaria.
 
-```{r}
+
+```{r, cache=TRUE}
 dt |>
   mutate(ano = as.numeric(str_sub(trimestre, nchar(trimestre) -3, nchar(trimestre)))) |>
   summarise(taxa_desocupacao = mean(taxa_desocupacao), .by = c(ano, faixa_etaria)) |>
@@ -297,9 +323,11 @@ dt |>
           y = ~taxa_desocupacao,
           color = ~faixa_etaria,
           type = "scatter",
-          mode = "lines+markers") |>
-  layout(yaxis = list(title = "Taxa de Desocupação \n População Economicamente Ativa (%)"),
-         xaxis = list(title = ""))
+          mode = "lines+markers",
+          width = 1000) |>
+  layout( legend = list(orientation = "h", xanchor = "center", x = .5),
+          yaxis = list(title = "Taxa de Desocupação \n População Economicamente Ativa (%)"),
+          xaxis = list(title = ""))
 ```
 
 ### Exercício
