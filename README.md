@@ -1,6 +1,6 @@
 # Projeto simples para demonstrar manipulação de dados e produção de gráficos
 
-Neste projeto são adquiridos dados da população brasileira (Fonte: PNAD Contínua do IBGE) de duas formas diferentes. Com esses dados são trabalhos conceitos de "Data  Wrangling" e produção de gráficos estáticos e dinâmicos.
+Neste projeto são adquiridos dados da população brasileira (Fonte: PNAD Contínua do IBGE) de duas formas diferentes. Com esses dados são trabalhados conceitos de "Data  Wrangling" e produção de gráficos estáticos e dinâmicos.
 
 ## Manipulação de dados
 
